@@ -169,6 +169,9 @@ pub enum SlimeDBError {
 
     #[error("[SlimeDB] Key Not Found: {0}")]
     KeyNotFound(String),
+
+    #[error("[SlimeDB] Serialization Error: {0}")]
+    Serialization(String),
 }
 
 pub type Result<T> = std::result::Result<T, SlimeDBError>;
