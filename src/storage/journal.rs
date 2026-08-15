@@ -1,11 +1,11 @@
 // Created by AG on 15-08-2026
 
-use crate::types::{SlimeDBError, Result};
+use crate::types::{SlimeDBError, Result, DBRecordVersioned};
 use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const JOURNAL_SIGNATURE: &[u8; 5] = b"SLIME";
 const JOURNAL_RECORD_HEADER_SIZE: usize = 12;
@@ -79,5 +79,28 @@ impl Journal {
     }
 
 
-    pub fn append() {}
+    pub fn append(&self, record: &DBRecordVersioned) -> Result<u64> {
+        let sequence = self.sequence.fetch_add(1, Ordering::SeqCst);
+        let data = postcard::to_allocvec(record)
+            .map_err(|err| SlimeDBError::Serialization(err.to_string()))?;
+
+        let db_checksum = crc32fast::hash(&data);
+        let mut writer = self.writer.lock();
+
+        if sequence == 0 {
+            writer.write_all(JOURNAL_SIGNATURE)?;
+        }
+
+        writer.write_all(&sequence.to_le_bytes())?;
+        writer.write_all(&(data.len() as u32).to_le_bytes())?;
+        writer.write_all(&data)?;
+        writer.write_all(&db_checksum.to_le_bytes())?;
+
+        if self.sync_on_write {
+            writer.flush()?;
+            writer.get_ref().sync_data()?;
+        }
+
+        Ok(sequence)
+    }
 }
