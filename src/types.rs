@@ -1,9 +1,16 @@
 // Created by AG on 13-08-2026
 
-use std::fmt;
+use core::time;
+use std::{fmt, sync::mpsc::Receiver};
 use thiserror::Error;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+pub type Timestamp = u64;
+pub type TransactionId = u64;
+pub type BranchId = Uuid;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Key(pub Vec<u8>);
 
 impl Key {
@@ -37,7 +44,7 @@ impl fmt::Display for Key {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Value(pub Vec<u8>);
 
 impl Value {
@@ -70,10 +77,48 @@ impl From<String> for Value {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DBRecordType {
     Put,
     Delete,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DBRecordVersioned {
+    pub key: Key,
+    pub value: Option<Value>,
+    pub timestamp: Timestamp,
+    pub transaction_id: TransactionId,
+    pub branch_id: BranchId,
+    pub db_record_type: DBRecordType::Put,
+}
+
+impl DBRecordVersioned {
+    pub fn put(key: Key, value: Value, timestamp: Timestamp, transaction_id: TransactionId, branch_id: BranchId) -> Self {
+        Self {
+            key,
+            value: Some(value),
+            timestamp,
+            transaction_id,
+            branch_id,
+            db_record_type: DBRecordType::Put,
+        }
+    }
+
+    pub fn delete(key: Key, value: Value, timestamp: Timestamp, transaction_id: TransactionId, branch_id: BranchId) -> Self {
+        Self {
+            key,
+            value: None,
+            timestamp,
+            transaction_id,
+            branch_id,
+            db_record_type: DBRecordType::Delete,
+        }
+    }
+
+    pub fn is_delete_marker(&self) -> bool {
+        self.db_record_type == DBRecordType::Delete
+    }
 }
 
 #[derive(Error, Debug)]
