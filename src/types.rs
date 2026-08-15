@@ -1,6 +1,6 @@
 // Created by AG on 13-08-2026
 
-use core::time;
+use std::time::{self, SystemTime, UNIX_EPOCH};
 use std::{fmt, sync::mpsc::Receiver};
 use thiserror::Error;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl fmt::Display for Key {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Value(pub Vec<u8>);
 
 impl Value {
@@ -119,6 +119,44 @@ impl DBRecordVersioned {
     pub fn is_delete_marker(&self) -> bool {
         self.db_record_type == DBRecordType::Delete
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DBBranch {
+    pub branch_id: BranchId,
+    pub branch_name: String,
+    pub branch_parent_id: Option<BranchId>,
+    pub fork_timestamp: Timestamp,
+    pub branch_created_at: Timestamp,
+}
+
+impl DBBranch {
+    pub fn main() -> Self {
+        Self {
+            branch_id: Uuid::nil(),
+            branch_name: "main".to_string(),
+            branch_parent_id: None,
+            fork_timestamp: 0,
+            branch_created_at: 0,
+        }
+    }
+
+    pub fn new(branch_name: String, branch_parent: &DBBranch, fork_timestamp: Timestamp) -> Self {
+        Self {
+            branch_id: Uuid::new_v4(),
+            branch_name: branch_name,
+            branch_parent_id: Some(branch_parent.branch_id),
+            fork_timestamp: fork_timestamp,
+            branch_created_at: current_timestamp(),
+        }
+    }
+}
+
+pub fn current_timestamp() -> Timestamp {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as Timestamp
 }
 
 #[derive(Error, Debug)]
