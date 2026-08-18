@@ -90,7 +90,7 @@ pub struct DBRecordVersioned {
     pub timestamp: Timestamp,
     pub transaction_id: TransactionId,
     pub branch_id: BranchId,
-    pub db_record_type: DBRecordType::Put,
+    pub db_record_type: DBRecordType,
 }
 
 impl DBRecordVersioned {
